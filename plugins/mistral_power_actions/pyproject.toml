@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openstack-power-actions"
+version = "1.0.0"
+description = "Fail-closed Mistral actions for Ironic-backed host power operations"
+requires-python = ">=3.9"
+dependencies = [
+  "mistral-lib",
+  "openstacksdk",
+  "oslo.config",
+  "oslo.log",
+  "redis",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
