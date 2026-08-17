@@ -91,8 +91,8 @@ source "$PWD/.venv/bin/activate"
 python3 -m pip install --upgrade pip
 python3 -m pip install -e .
 export KOLLA_CONFIG_PATH="$PWD/etc/kolla"
-kolla-ansible --configdir "$PWD/etc/kolla" \
-  -i "$PWD/etc/kolla/inventory" install-deps
+kolla-ansible install-deps --configdir "$PWD/etc/kolla" \
+  -i "$PWD/etc/kolla/inventory"
 ```
 
 **Ожидаемый результат:** `kolla-ansible --version` указывает на `.venv`, а
@@ -442,8 +442,8 @@ tags до завершения rollback.
 
 ```bash
 cd /opt/kolla-ansible
-kolla-ansible --configdir "$PWD/etc/kolla" \
-  -i "$PWD/etc/kolla/inventory" bootstrap-servers
+kolla-ansible bootstrap-servers --configdir "$PWD/etc/kolla" \
+  -i "$PWD/etc/kolla/inventory"
 ```
 
 **Ожидаемый результат:** play recap без failed hosts.
@@ -473,8 +473,8 @@ image access до изменения services.
 
 ```bash
 cd /opt/kolla-ansible
-kolla-ansible --configdir "$PWD/etc/kolla" \
-  -i "$PWD/etc/kolla/inventory" prechecks
+kolla-ansible prechecks --configdir "$PWD/etc/kolla" \
+  -i "$PWD/etc/kolla/inventory"
 ```
 
 **Ожидаемый результат:** recap без failed; PowerOps validator уже имеет status
@@ -517,8 +517,8 @@ Mistral databases.
 
 ```bash
 cd /opt/kolla-ansible
-kolla-ansible --configdir "$PWD/etc/kolla" \
-  -i "$PWD/etc/kolla/inventory" deploy
+kolla-ansible deploy --configdir "$PWD/etc/kolla" \
+  -i "$PWD/etc/kolla/inventory"
 ```
 
 **Ожидаемый результат:** три Ironic API/conductor instances, два manageable
@@ -552,8 +552,8 @@ reconciliation из той же точки управления.
 
 ```bash
 cd /opt/kolla-ansible
-kolla-ansible --configdir "$PWD/etc/kolla" \
-  -i "$PWD/etc/kolla/inventory" reconfigure
+kolla-ansible reconfigure --configdir "$PWD/etc/kolla" \
+  -i "$PWD/etc/kolla/inventory"
 ```
 
 **Ожидаемый результат:** нет duplicate Nodes, Ports, segments, hosts или
@@ -868,8 +868,8 @@ failed Masakari notification.
 ```bash
 cd /opt/kolla-ansible
 cp "$PWD/etc/kolla/globals.yml" "$PWD/etc/kolla/globals.yml.bmc-test-backup"
-kolla-ansible --configdir "$PWD/etc/kolla" \
-  -i "$PWD/etc/kolla/inventory" reconfigure
+kolla-ansible reconfigure --configdir "$PWD/etc/kolla" \
+  -i "$PWD/etc/kolla/inventory"
 openstack notification list
 openstack server list --all-projects --host compute-01 --long
 ```
@@ -1092,8 +1092,8 @@ reconfigure services.
 ```bash
 cd /opt/kolla-ansible
 chmod 0600 "$PWD/etc/kolla/globals.yml"
-kolla-ansible --configdir "$PWD/etc/kolla" \
-  -i "$PWD/etc/kolla/inventory" reconfigure
+kolla-ansible reconfigure --configdir "$PWD/etc/kolla" \
+  -i "$PWD/etc/kolla/inventory"
 ```
 
 **Ожидаемый результат:** services используют прежние images/config; OpenStack

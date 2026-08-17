@@ -40,6 +40,29 @@ IMAGE_SERVICES = (
     "mistral-executor",
     "masakari-engine",
 )
+POWEROPS_ACTIONS = (
+    "powerops.acquire_host_lock",
+    "powerops.refresh_host_lock",
+    "powerops.release_host_lock",
+    "powerops.resolve_host",
+    "powerops.set_nova_service",
+    "powerops.set_masakari_maintenance",
+    "powerops.drain_host",
+    "powerops.assert_host_empty",
+    "powerops.ironic_power",
+    "powerops.wait_power",
+    "powerops.wait_nova_service",
+    "powerops.verify_host_return",
+    "powerops.power_status",
+    "powerops.audit_event",
+    "powerops.fail_safe_host",
+)
+POWEROPS_WORKFLOWS = (
+    "planned_power_off",
+    "planned_reboot",
+    "power_on_and_return",
+    "host_power_status",
+)
 PLUGIN_BUILDS = (
     {
         "package": "plugins/mistral_power_actions",
@@ -186,6 +209,10 @@ def build_report(data, errors):
             "node_count": len(nodes),
             "port_count": port_count,
             "driver_counts": dict(sorted(driver_counts.items())),
+        },
+        "automation": {
+            "action_count": len(POWEROPS_ACTIONS),
+            "workflow_count": len(POWEROPS_WORKFLOWS),
         },
         "live_validation": {name: not_run for name in LIVE_CHECKS},
     }

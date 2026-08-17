@@ -158,6 +158,8 @@ def test_report_redacts_passwords_and_marks_live_checks_not_run():
     assert "driver_info" not in rendered
     assert report["local_validation"]["status"] == "passed"
     assert report["inventory"]["node_count"] == 1
+    assert report["automation"]["action_count"] == 15
+    assert report["automation"]["workflow_count"] == 4
     assert set(report["live_validation"].values()) == {
         "not_run: No target deployment was authorized"
     }

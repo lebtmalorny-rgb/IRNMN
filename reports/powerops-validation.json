@@ -1,4 +1,8 @@
 {
+  "automation": {
+    "action_count": 15,
+    "workflow_count": 4
+  },
   "inventory": {
     "driver_counts": {
       "ipmi": 1,

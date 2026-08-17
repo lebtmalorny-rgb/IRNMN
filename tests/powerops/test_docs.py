@@ -82,6 +82,11 @@ def test_every_documented_kolla_command_is_checkout_explicit():
     commands = _shell_commands(_runbook())
     assert commands
     for command in commands:
+        assert re.match(
+            r"kolla-ansible "
+            r"(install-deps|bootstrap-servers|prechecks|deploy|reconfigure)\b",
+            command,
+        )
         assert '--configdir "$PWD/etc/kolla"' in command
         assert '-i "$PWD/etc/kolla/inventory"' in command
 
