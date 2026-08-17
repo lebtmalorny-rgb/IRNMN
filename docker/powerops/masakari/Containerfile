@@ -1,0 +1,8 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+USER root
+COPY dist/*.whl /tmp/powerops/
+RUN /var/lib/kolla/venv/bin/pip install --no-cache-dir /tmp/powerops/*.whl \
+    && rm -f /tmp/powerops/*.whl
+USER masakari

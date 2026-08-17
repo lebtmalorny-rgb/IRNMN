@@ -11,3 +11,18 @@ docker_registry: "registry.example.invalid:5000"
 docker_registry_insecure: true
 docker_namespace: "pvs/pvs-openstack-sberlinux-97"
 docker_image_name_prefix: "pvs-"
+
+powerops_base_images:
+  mistral-api: "registry.example.invalid:5000/pvs/pvs-openstack-sberlinux-97/pvs-mistral-api:20260430.1020-sberlinux-9"
+  mistral-engine: "registry.example.invalid:5000/pvs/pvs-openstack-sberlinux-97/pvs-mistral-engine:20260430.1020-sberlinux-9"
+  mistral-executor: "registry.example.invalid:5000/pvs/pvs-openstack-sberlinux-97/pvs-mistral-executor:20260430.1020-sberlinux-9"
+  masakari-engine: "registry.example.invalid:5000/pvs/pvs-openstack-sberlinux-97/pvs-masakari-engine:20260430.1020-sberlinux-9"
+powerops_derived_images:
+  mistral-api: "registry.example.invalid:5000/pvs/pvs-openstack-sberlinux-97/pvs-mistral-api-powerops:20260430.1020-sberlinux-9-v1"
+  mistral-engine: "registry.example.invalid:5000/pvs/pvs-openstack-sberlinux-97/pvs-mistral-engine-powerops:20260430.1020-sberlinux-9-v1"
+  mistral-executor: "registry.example.invalid:5000/pvs/pvs-openstack-sberlinux-97/pvs-mistral-executor-powerops:20260430.1020-sberlinux-9-v1"
+  masakari-engine: "registry.example.invalid:5000/pvs/pvs-openstack-sberlinux-97/pvs-masakari-engine-powerops:20260430.1020-sberlinux-9-v1"
+mistral_api_image_full: "{{ powerops_derived_images['mistral-api'] }}"
+mistral_engine_image_full: "{{ powerops_derived_images['mistral-engine'] }}"
+mistral_executor_image_full: "{{ powerops_derived_images['mistral-executor'] }}"
+masakari_engine_image_full: "{{ powerops_derived_images['masakari-engine'] }}"

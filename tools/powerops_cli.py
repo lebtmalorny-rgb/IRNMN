@@ -2,11 +2,15 @@
 """Validate and prepare the Kolla-Ansible PowerOps extension."""
 
 import argparse
+import configparser
 import json
 import re
+import shutil
+import subprocess
 import sys
 from collections import Counter
 from pathlib import Path
+import zipfile
 
 import yaml
 
@@ -21,12 +25,36 @@ REQUIRED_SERVICES = (
 )
 LIVE_CHECKS = (
     "kolla_deploy",
+    "derived_image_build",
+    "derived_image_publish",
     "ironic_api_failover",
     "ironic_conductor_failover",
     "redfish_power",
     "ipmi_power",
     "masakari_fencing_and_evacuation",
     "mistral_planned_workflows",
+)
+IMAGE_SERVICES = (
+    "mistral-api",
+    "mistral-engine",
+    "mistral-executor",
+    "masakari-engine",
+)
+PLUGIN_BUILDS = (
+    {
+        "package": "plugins/mistral_power_actions",
+        "wheel": "openstack_power_actions-*.whl",
+        "context": "docker/powerops/mistral",
+        "entry_group": "mistral.actions",
+        "entry_name": "powerops.acquire_host_lock",
+    },
+    {
+        "package": "plugins/masakari_ironic_fence",
+        "wheel": "masakari_ironic_fence-*.whl",
+        "context": "docker/powerops/masakari",
+        "entry_group": "masakari.task_flow.tasks",
+        "entry_name": "ironic_fence",
+    },
 )
 
 
@@ -163,6 +191,128 @@ def build_report(data, errors):
     }
 
 
+def _image_mappings(data):
+    base = data.get("powerops_base_images")
+    derived = data.get("powerops_derived_images")
+    if not isinstance(base, dict) or not isinstance(derived, dict):
+        raise ValueError(
+            "powerops_base_images and powerops_derived_images must be mappings"
+        )
+    for service in IMAGE_SERVICES:
+        if not base.get(service):
+            raise ValueError("missing base image for {}".format(service))
+        if not derived.get(service):
+            raise ValueError("missing derived image for {}".format(service))
+    return base, derived
+
+
+def _run(runner, command, root=None):
+    kwargs = {"check": True}
+    if root is not None:
+        kwargs["cwd"] = str(root)
+    return runner(command, **kwargs)
+
+
+def _built_wheel(root, build):
+    candidates = list((root / build["package"] / "dist").glob(build["wheel"]))
+    if not candidates:
+        raise ValueError("wheel was not produced for {}".format(build["package"]))
+    return max(candidates, key=lambda path: (path.stat().st_mtime_ns, path.name))
+
+
+def _verify_wheel_entrypoint(wheel, group, entry_name):
+    with zipfile.ZipFile(wheel) as archive:
+        matches = [
+            name for name in archive.namelist() if name.endswith("/entry_points.txt")
+        ]
+        if len(matches) != 1:
+            raise ValueError("wheel must contain exactly one entry_points.txt")
+        parser = configparser.ConfigParser(interpolation=None)
+        parser.read_string(archive.read(matches[0]).decode("utf-8"))
+    if not parser.has_option(group, entry_name):
+        raise ValueError(
+            "wheel {} is missing entry point {}:{}".format(
+                wheel.name, group, entry_name
+            )
+        )
+
+
+def build_images(data, runner=subprocess.run, root=ROOT):
+    """Build plugin wheels and four derived service images without publishing."""
+    root = Path(root).resolve()
+    base, derived = _image_mappings(data)
+    engine = data.get("kolla_container_engine", "podman")
+    wheel_by_kind = {}
+    for build in PLUGIN_BUILDS:
+        package = root / build["package"]
+        _run(
+            runner,
+            [
+                sys.executable,
+                "-m",
+                "build",
+                "--wheel",
+                "--no-isolation",
+                str(package),
+            ],
+            root=root,
+        )
+        wheel = _built_wheel(root, build)
+        _verify_wheel_entrypoint(
+            wheel, build["entry_group"], build["entry_name"]
+        )
+        context = root / build["context"]
+        destination = context / "dist" / wheel.name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(wheel, destination)
+        wheel_by_kind["masakari" if "masakari" in build["package"] else "mistral"] = (
+            destination
+        )
+
+    for service in IMAGE_SERVICES:
+        kind = "masakari" if service == "masakari-engine" else "mistral"
+        if kind not in wheel_by_kind:
+            raise ValueError("missing {} plugin wheel".format(kind))
+        context = root / "docker/powerops" / kind
+        _run(
+            runner,
+            [
+                engine,
+                "build",
+                "--build-arg",
+                "BASE_IMAGE={}".format(base[service]),
+                "--tag",
+                derived[service],
+                str(context),
+            ],
+            root=root,
+        )
+    return {"built_images": [derived[service] for service in IMAGE_SERVICES]}
+
+
+def _registry_host(image):
+    if "/" not in image:
+        raise ValueError("derived image must include an explicit registry host")
+    return image.split("/", 1)[0]
+
+
+def publish_images(data, confirm_registry, runner=subprocess.run, root=ROOT):
+    """Verify and publish existing derived images after exact registry confirmation."""
+    _, derived = _image_mappings(data)
+    engine = data.get("kolla_container_engine", "podman")
+    images = [derived[service] for service in IMAGE_SERVICES]
+    registries = {_registry_host(image) for image in images}
+    if registries != {confirm_registry}:
+        raise ValueError(
+            "registry confirmation does not match derived image registry"
+        )
+    for image in images:
+        _run(runner, [engine, "image", "inspect", image], root=root)
+    for image in images:
+        _run(runner, [engine, "push", image], root=root)
+    return {"published_images": images}
+
+
 def _validate_command(args):
     configdir = Path(args.configdir).resolve()
     inventory_path = Path(args.inventory or configdir / "inventory").resolve()
@@ -171,10 +321,32 @@ def _validate_command(args):
     inventory_text = inventory_path.read_text()
     errors = validate_config(data, inventory_text)
     report = build_report(data, errors)
+    engine = data.get("kolla_container_engine", "podman")
+    if shutil.which(engine) is None:
+        report["live_validation"]["derived_image_build"] = (
+            "not_run: configured container engine is unavailable"
+        )
+        report["live_validation"]["derived_image_publish"] = (
+            "not_run: derived images were not built"
+        )
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     print(json.dumps(report, indent=2, sort_keys=True))
     return 2 if errors else 0
+
+
+def _build_images_command(args):
+    data = load_config(Path(args.configdir).resolve() / "globals.yml")
+    result = build_images(data)
+    print(json.dumps(result, indent=2, sort_keys=True))
+    return 0
+
+
+def _publish_images_command(args):
+    data = load_config(Path(args.configdir).resolve() / "globals.yml")
+    result = publish_images(data, args.confirm_registry)
+    print(json.dumps(result, indent=2, sort_keys=True))
+    return 0
 
 
 def _parser():
@@ -187,6 +359,21 @@ def _parser():
         "--report", default=str(ROOT / "reports/powerops-validation.json")
     )
     validate.set_defaults(handler=_validate_command)
+    build_images_parser = subparsers.add_parser(
+        "build-images", help="build local PowerOps service images"
+    )
+    build_images_parser.add_argument(
+        "--configdir", default=str(ROOT / "etc/kolla")
+    )
+    build_images_parser.set_defaults(handler=_build_images_command)
+    publish_images_parser = subparsers.add_parser(
+        "publish-images", help="publish already-built PowerOps service images"
+    )
+    publish_images_parser.add_argument(
+        "--configdir", default=str(ROOT / "etc/kolla")
+    )
+    publish_images_parser.add_argument("--confirm-registry", required=True)
+    publish_images_parser.set_defaults(handler=_publish_images_command)
     return parser
 
 
@@ -194,7 +381,13 @@ def main(argv=None):
     args = _parser().parse_args(argv)
     try:
         return args.handler(args)
-    except (OSError, ValueError, yaml.YAMLError) as exc:
+    except (
+        OSError,
+        ValueError,
+        subprocess.CalledProcessError,
+        yaml.YAMLError,
+        zipfile.BadZipFile,
+    ) as exc:
         print("powerops: {}".format(exc), file=sys.stderr)
         return 2
 

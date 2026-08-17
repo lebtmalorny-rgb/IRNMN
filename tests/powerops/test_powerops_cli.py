@@ -1,6 +1,7 @@
 import importlib.util
 import json
 from pathlib import Path
+import zipfile
 
 import pytest
 import yaml
@@ -42,6 +43,61 @@ def valid_data():
             }
         ],
     }
+
+
+def image_data():
+    data = valid_data()
+    data["kolla_container_engine"] = "podman"
+    data["powerops_base_images"] = {
+        "mistral-api": "quay.example/mistral-api:2025.1",
+        "mistral-engine": "quay.example/mistral-engine:2025.1",
+        "mistral-executor": "quay.example/mistral-executor:2025.1",
+        "masakari-engine": "quay.example/masakari-engine:2025.1",
+    }
+    data["powerops_derived_images"] = {
+        service: "registry.example.invalid:5000/powerops/{}:v1".format(service)
+        for service in data["powerops_base_images"]
+    }
+    return data
+
+
+class RecordingRunner:
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, command, **kwargs):
+        self.calls.append((list(command), dict(kwargs)))
+
+
+def _wheel(path, entry_points):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("example-1.0.dist-info/entry_points.txt", entry_points)
+
+
+def _fake_image_tree(tmp_path):
+    mistral_wheel = (
+        tmp_path
+        / "plugins/mistral_power_actions/dist"
+        / "openstack_power_actions-1.0-py3-none-any.whl"
+    )
+    masakari_wheel = (
+        tmp_path
+        / "plugins/masakari_ironic_fence/dist"
+        / "masakari_ironic_fence-1.0-py3-none-any.whl"
+    )
+    _wheel(
+        mistral_wheel,
+        "[mistral.actions]\npowerops.acquire_host_lock = package:Action\n",
+    )
+    _wheel(
+        masakari_wheel,
+        "[masakari.task_flow.tasks]\nironic_fence = package:Task\n",
+    )
+    for kind in ("mistral", "masakari"):
+        context = tmp_path / "docker/powerops" / kind
+        context.mkdir(parents=True)
+        (context / "Containerfile").write_text("ARG BASE_IMAGE\n")
 
 
 INVENTORY = """[control]
@@ -109,6 +165,7 @@ def test_report_redacts_passwords_and_marks_live_checks_not_run():
 
 def test_validate_command_writes_redacted_report(tmp_path):
     module = load_module()
+    module.shutil.which = lambda command: None
     configdir = tmp_path / "etc" / "kolla"
     configdir.mkdir(parents=True)
     (configdir / "globals.yml").write_text(yaml.safe_dump(valid_data()))
@@ -131,6 +188,9 @@ def test_validate_command_writes_redacted_report(tmp_path):
     assert result == 0
     payload = report.read_text()
     assert json.loads(payload)["local_validation"]["status"] == "passed"
+    assert json.loads(payload)["live_validation"]["derived_image_build"] == (
+        "not_run: configured container engine is unavailable"
+    )
     assert "example-only-redfish-password" not in payload
 
 
@@ -149,3 +209,72 @@ def test_each_required_service_must_be_enabled(service):
     data = valid_data()
     data[service] = "no"
     assert "{} must be yes".format(service) in module.validate_config(data, INVENTORY)
+
+
+def test_build_images_uses_configured_base_and_derived_tags(tmp_path):
+    module = load_module()
+    _fake_image_tree(tmp_path)
+    runner = RecordingRunner()
+
+    result = module.build_images(image_data(), runner=runner, root=tmp_path)
+
+    commands = [command for command, _ in runner.calls]
+    builds = [command for command in commands if command[:2] == ["podman", "build"]]
+    assert len(builds) == 4
+    for service, image in image_data()["powerops_derived_images"].items():
+        command = next(item for item in builds if image in item)
+        assert (
+            "BASE_IMAGE=" + image_data()["powerops_base_images"][service]
+            in command
+        )
+    assert result["built_images"] == list(
+        image_data()["powerops_derived_images"].values()
+    )
+
+
+def test_build_images_never_pushes(tmp_path):
+    module = load_module()
+    _fake_image_tree(tmp_path)
+    runner = RecordingRunner()
+
+    module.build_images(image_data(), runner=runner, root=tmp_path)
+
+    assert all(command[:2] != ["podman", "push"] for command, _ in runner.calls)
+
+
+def test_publish_requires_exact_registry_confirmation():
+    module = load_module()
+    runner = RecordingRunner()
+
+    with pytest.raises(ValueError, match="registry confirmation"):
+        module.publish_images(
+            image_data(),
+            confirm_registry="wrong.example",
+            runner=runner,
+        )
+
+    assert runner.calls == []
+
+
+def test_publish_inspects_every_image_before_any_push():
+    module = load_module()
+    runner = RecordingRunner()
+
+    result = module.publish_images(
+        image_data(),
+        confirm_registry="registry.example.invalid:5000",
+        runner=runner,
+    )
+
+    commands = [command for command, _ in runner.calls]
+    assert commands[:4] == [
+        ["podman", "image", "inspect", image]
+        for image in image_data()["powerops_derived_images"].values()
+    ]
+    assert commands[4:] == [
+        ["podman", "push", image]
+        for image in image_data()["powerops_derived_images"].values()
+    ]
+    assert result["published_images"] == list(
+        image_data()["powerops_derived_images"].values()
+    )

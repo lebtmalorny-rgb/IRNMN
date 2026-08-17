@@ -8,6 +8,8 @@
     "port_count": 2
   },
   "live_validation": {
+    "derived_image_build": "not_run: configured container engine is unavailable",
+    "derived_image_publish": "not_run: derived images were not built",
     "ipmi_power": "not_run: No target deployment was authorized",
     "ironic_api_failover": "not_run: No target deployment was authorized",
     "ironic_conductor_failover": "not_run: No target deployment was authorized",

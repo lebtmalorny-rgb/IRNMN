@@ -32,6 +32,21 @@ powerops_verify_tls: true
 powerops_masakari_segment_name: "powerops-compute"
 powerops_masakari_recovery_method: "auto"
 
+powerops_base_images:
+  mistral-api: "quay.io/openstack.kolla/rocky-source-mistral-api:2025.1"
+  mistral-engine: "quay.io/openstack.kolla/rocky-source-mistral-engine:2025.1"
+  mistral-executor: "quay.io/openstack.kolla/rocky-source-mistral-executor:2025.1"
+  masakari-engine: "quay.io/openstack.kolla/rocky-source-masakari-engine:2025.1"
+powerops_derived_images:
+  mistral-api: "registry.example.invalid:5000/example/openstack/mistral-api-powerops:2025.1-v1"
+  mistral-engine: "registry.example.invalid:5000/example/openstack/mistral-engine-powerops:2025.1-v1"
+  mistral-executor: "registry.example.invalid:5000/example/openstack/mistral-executor-powerops:2025.1-v1"
+  masakari-engine: "registry.example.invalid:5000/example/openstack/masakari-engine-powerops:2025.1-v1"
+mistral_api_image_full: "{{ powerops_derived_images['mistral-api'] }}"
+mistral_engine_image_full: "{{ powerops_derived_images['mistral-engine'] }}"
+mistral_executor_image_full: "{{ powerops_derived_images['mistral-executor'] }}"
+masakari_engine_image_full: "{{ powerops_derived_images['masakari-engine'] }}"
+
 # Simplification approved for this example. Replace with Ansible Vault or an
 # external secret manager before production use. Keep this file mode 0600.
 powerops_bmc_secrets_in_globals: true
