@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "masakari-ironic-fence"
+version = "1.0.0"
+description = "Fail-closed Ironic fencing task for Masakari host recovery"
+requires-python = ">=3.9"
+dependencies = [
+  "masakari>=20.0.0,<21.0.0",
+  "openstacksdk",
+  "oslo.config",
+  "oslo.log",
+  "taskflow",
+]
+
+[project.entry-points."masakari.task_flow.tasks"]
+"ironic_fence" = "masakari_ironic_fence.task:IronicFenceTask"
+
+[tool.setuptools.packages.find]
+where = ["src"]
