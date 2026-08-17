@@ -1,6 +1,7 @@
 """Mistral actions for planned compute-host power operations."""
 
 import uuid
+from urllib import parse
 
 from mistral_lib import actions as mistral_actions
 from oslo_config import cfg
@@ -20,12 +21,34 @@ def _operations():
     return PowerOperations(clients.connection_from_conf(cfg.CONF))
 
 
+def _sentinel_endpoint(value):
+    parsed = parse.urlsplit("//{}".format(value))
+    if not parsed.hostname or parsed.port is None:
+        raise ValueError("invalid Redis Sentinel endpoint")
+    return parsed.hostname, parsed.port
+
+
+def _redis_client():
+    options = cfg.CONF.powerops
+    if options.redis_sentinel_hosts:
+        sentinel = redis.sentinel.Sentinel(
+            [_sentinel_endpoint(item) for item in options.redis_sentinel_hosts],
+            socket_timeout=options.redis_sentinel_socket_timeout,
+        )
+        return sentinel.master_for(
+            options.redis_master_name,
+            password=options.redis_password,
+            db=options.redis_db,
+            decode_responses=True,
+        )
+    if not options.redis_url:
+        raise ValueError("Redis Sentinel hosts or redis_url are required")
+    return redis.Redis.from_url(options.redis_url, decode_responses=True)
+
+
 def _lock(host, owner, ttl=None):
     ttl_seconds = ttl if ttl is not None else cfg.CONF.powerops.lock_ttl
-    client = redis.Redis.from_url(
-        cfg.CONF.powerops.redis_url, decode_responses=True
-    )
-    return RedisHostLock(client, host, ttl_seconds, owner)
+    return RedisHostLock(_redis_client(), host, ttl_seconds, owner)
 
 
 def _owner(action_ctx):

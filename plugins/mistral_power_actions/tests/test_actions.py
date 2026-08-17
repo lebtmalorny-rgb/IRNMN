@@ -132,6 +132,76 @@ def test_failed_lock_acquisition_returns_error_without_host_mutation(monkeypatch
     assert result.error == "host operation lock is already held: compute-01"
 
 
+def test_redis_client_uses_kolla_sentinel_topology(monkeypatch):
+    captured = {}
+
+    class FakeSentinel:
+        def __init__(self, endpoints, socket_timeout):
+            captured["endpoints"] = endpoints
+            captured["socket_timeout"] = socket_timeout
+
+        def master_for(self, name, **kwargs):
+            captured["master_name"] = name
+            captured["master_kwargs"] = kwargs
+            return "redis-master-client"
+
+    monkeypatch.setattr(power_actions.redis.sentinel, "Sentinel", FakeSentinel)
+    monkeypatch.setattr(
+        power_actions.cfg,
+        "CONF",
+        SimpleNamespace(
+            powerops=SimpleNamespace(
+                redis_sentinel_hosts=[
+                    "192.0.2.11:26379",
+                    "[2001:db8::12]:26379",
+                ],
+                redis_sentinel_socket_timeout=5,
+                redis_master_name="kolla",
+                redis_password="redis-secret",
+                redis_db=4,
+                redis_url=None,
+            )
+        ),
+    )
+
+    assert power_actions._redis_client() == "redis-master-client"
+    assert captured == {
+        "endpoints": [("192.0.2.11", 26379), ("2001:db8::12", 26379)],
+        "socket_timeout": 5,
+        "master_name": "kolla",
+        "master_kwargs": {
+            "password": "redis-secret",
+            "db": 4,
+            "decode_responses": True,
+        },
+    }
+
+
+def test_redis_client_can_use_explicit_direct_fallback(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(
+        power_actions.redis.Redis,
+        "from_url",
+        lambda url, **kwargs: captured.update(url=url, **kwargs) or "direct-client",
+    )
+    monkeypatch.setattr(
+        power_actions.cfg,
+        "CONF",
+        SimpleNamespace(
+            powerops=SimpleNamespace(
+                redis_sentinel_hosts=[],
+                redis_url="redis://redis.example:6379/4",
+            )
+        ),
+    )
+
+    assert power_actions._redis_client() == "direct-client"
+    assert captured == {
+        "url": "redis://redis.example:6379/4",
+        "decode_responses": True,
+    }
+
+
 def test_unexpected_operation_exception_is_not_hidden(monkeypatch):
     class BrokenOperations:
         def status(self, host):

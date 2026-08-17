@@ -42,4 +42,8 @@ def test_connection_uses_service_auth_and_powerops_endpoint_options(monkeypatch)
 def test_redis_url_is_registered_as_secret():
     option = next(item for item in clients.POWEROPS_OPTS if item.name == "redis_url")
     assert option.secret is True
+    password = next(
+        item for item in clients.POWEROPS_OPTS if item.name == "redis_password"
+    )
+    assert password.secret is True
     assert next(item for item in clients.POWEROPS_OPTS if item.name == "lock_ttl").default == 900

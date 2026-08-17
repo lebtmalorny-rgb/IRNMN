@@ -7,6 +7,11 @@ from oslo_config import cfg
 POWEROPS_GROUP = cfg.OptGroup("powerops")
 POWEROPS_OPTS = [
     cfg.StrOpt("redis_url", secret=True),
+    cfg.ListOpt("redis_sentinel_hosts", default=[]),
+    cfg.FloatOpt("redis_sentinel_socket_timeout", default=5.0, min=0.1),
+    cfg.StrOpt("redis_master_name", default="kolla"),
+    cfg.StrOpt("redis_password", secret=True),
+    cfg.IntOpt("redis_db", default=4, min=0),
     cfg.StrOpt("region_name", default="RegionOne"),
     cfg.StrOpt("interface", default="internal"),
     cfg.BoolOpt("verify", default=True),
