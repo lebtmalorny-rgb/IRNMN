@@ -19,6 +19,9 @@ checkout Kolla-Ansible. Имена узлов, VLAN и адреса из при�
 - [редактируемая SVG-схема](https://github.com/lebtmalorny-rgb/IRNMN/blob/main/docs/powerops/ironic-ha-power-workflows.svg);
 - [PNG-схема](https://github.com/lebtmalorny-rgb/IRNMN/blob/main/docs/powerops/ironic-ha-power-workflows.png);
 - [globals.yml](https://github.com/lebtmalorny-rgb/IRNMN/blob/main/etc/kolla/globals.yml);
+- [конфигурация Ironic](https://github.com/lebtmalorny-rgb/IRNMN/blob/main/etc/kolla/config/ironic.conf);
+- [конфигурация Masakari Engine](https://github.com/lebtmalorny-rgb/IRNMN/blob/main/etc/kolla/config/masakari/masakari-engine.conf);
+- [конфигурация Mistral Executor](https://github.com/lebtmalorny-rgb/IRNMN/blob/main/etc/kolla/config/mistral/mistral-executor.conf);
 - [отчёт проверки](https://github.com/lebtmalorny-rgb/IRNMN/blob/main/reports/powerops-validation.json).
 
 Граница этой поставки: Ironic хранит соответствие compute host, BMC и MAC,
