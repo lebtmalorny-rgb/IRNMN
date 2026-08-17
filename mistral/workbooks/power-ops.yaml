@@ -1,0 +1,209 @@
+---
+version: "2.0"
+name: power_ops
+
+workflows:
+  planned_power_off:
+    type: direct
+    input:
+      - host
+      - instance_policy: require_empty
+    tasks:
+      acquire_lock:
+        action: powerops.acquire_host_lock host=<% $.host %>
+        on-success: [resolve]
+        on-error: [fail]
+      resolve:
+        action: powerops.resolve_host host=<% $.host %>
+        on-success: [maintenance_on]
+        on-error: [fail_safe_host]
+      maintenance_on:
+        action: powerops.set_masakari_maintenance host=<% $.host %> enabled=true
+        on-success: [nova_disable]
+        on-error: [fail_safe_host]
+      nova_disable:
+        action: powerops.set_nova_service host=<% $.host %> enabled=false
+        on-success: [drain_instances]
+        on-error: [fail_safe_host]
+      drain_instances:
+        action: powerops.drain_host host=<% $.host %> policy=<% $.instance_policy %>
+        on-success: [refresh_lock]
+        on-error: [fail_safe_host]
+      refresh_lock:
+        action: powerops.refresh_host_lock host=<% $.host %>
+        on-success: [assert_host_safe]
+        on-error: [fail_safe_host]
+      assert_host_safe:
+        action: powerops.assert_host_empty host=<% $.host %> allow_shutoff=<% $.instance_policy = 'stop' %>
+        on-success: [request_off]
+        on-error: [fail_safe_host]
+      request_off:
+        action: powerops.ironic_power host=<% $.host %> target="power off" soft=true
+        on-success: [wait_off]
+        on-error: [fail_safe_host]
+      wait_off:
+        action: powerops.wait_power host=<% $.host %> target="power off"
+        on-success: [audit_success]
+        on-error: [fail_safe_host]
+      audit_success:
+        action: powerops.audit_event host=<% $.host %> event="planned_power_off" outcome="success"
+        on-success: [release_lock]
+        on-error: [fail_safe_host]
+      release_lock:
+        action: powerops.release_host_lock host=<% $.host %>
+      fail_safe_host:
+        action: powerops.fail_safe_host host=<% $.host %>
+        on-complete: [audit_failure]
+      audit_failure:
+        action: powerops.audit_event host=<% $.host %> event="planned_power_off" outcome="failure"
+        on-complete: [release_lock_error]
+      release_lock_error:
+        action: powerops.release_host_lock host=<% $.host %>
+        on-complete: [fail]
+
+  planned_reboot:
+    type: direct
+    input:
+      - host
+      - instance_policy: require_empty
+      - stale_domains_checked: false
+    tasks:
+      acquire_lock:
+        action: powerops.acquire_host_lock host=<% $.host %>
+        on-success: [resolve]
+        on-error: [fail]
+      resolve:
+        action: powerops.resolve_host host=<% $.host %>
+        on-success: [maintenance_on]
+        on-error: [fail_safe_host]
+      maintenance_on:
+        action: powerops.set_masakari_maintenance host=<% $.host %> enabled=true
+        on-success: [nova_disable]
+        on-error: [fail_safe_host]
+      nova_disable:
+        action: powerops.set_nova_service host=<% $.host %> enabled=false
+        on-success: [drain_instances]
+        on-error: [fail_safe_host]
+      drain_instances:
+        action: powerops.drain_host host=<% $.host %> policy=<% $.instance_policy %>
+        on-success: [refresh_lock]
+        on-error: [fail_safe_host]
+      refresh_lock:
+        action: powerops.refresh_host_lock host=<% $.host %>
+        on-success: [assert_host_safe]
+        on-error: [fail_safe_host]
+      assert_host_safe:
+        action: powerops.assert_host_empty host=<% $.host %> allow_shutoff=<% $.instance_policy = 'stop' %>
+        on-success: [request_off]
+        on-error: [fail_safe_host]
+      request_off:
+        action: powerops.ironic_power host=<% $.host %> target="power off" soft=true
+        on-success: [wait_off]
+        on-error: [fail_safe_host]
+      wait_off:
+        action: powerops.wait_power host=<% $.host %> target="power off"
+        on-success: [request_on]
+        on-error: [fail_safe_host]
+      request_on:
+        action: powerops.ironic_power host=<% $.host %> target="power on"
+        on-success: [wait_on]
+        on-error: [fail_safe_host]
+      wait_on:
+        action: powerops.wait_power host=<% $.host %> target="power on"
+        on-success: [wait_nova]
+        on-error: [fail_safe_host]
+      wait_nova:
+        action: powerops.wait_nova_service host=<% $.host %>
+        on-success: [verify_host_return]
+        on-error: [fail_safe_host]
+      verify_host_return:
+        action: powerops.verify_host_return host=<% $.host %> stale_domains_checked=<% $.stale_domains_checked %>
+        on-success: [nova_enable]
+        on-error: [fail_safe_host]
+      nova_enable:
+        action: powerops.set_nova_service host=<% $.host %> enabled=true
+        on-success: [maintenance_off]
+        on-error: [fail_safe_host]
+      maintenance_off:
+        action: powerops.set_masakari_maintenance host=<% $.host %> enabled=false
+        on-success: [audit_success]
+        on-error: [fail_safe_host]
+      audit_success:
+        action: powerops.audit_event host=<% $.host %> event="planned_reboot" outcome="success"
+        on-success: [release_lock]
+        on-error: [fail_safe_host]
+      release_lock:
+        action: powerops.release_host_lock host=<% $.host %>
+      fail_safe_host:
+        action: powerops.fail_safe_host host=<% $.host %>
+        on-complete: [audit_failure]
+      audit_failure:
+        action: powerops.audit_event host=<% $.host %> event="planned_reboot" outcome="failure"
+        on-complete: [release_lock_error]
+      release_lock_error:
+        action: powerops.release_host_lock host=<% $.host %>
+        on-complete: [fail]
+
+  power_on_and_return:
+    type: direct
+    input:
+      - host
+      - stale_domains_checked: false
+    tasks:
+      acquire_lock:
+        action: powerops.acquire_host_lock host=<% $.host %>
+        on-success: [resolve]
+        on-error: [fail]
+      resolve:
+        action: powerops.resolve_host host=<% $.host %>
+        on-success: [request_on]
+        on-error: [fail_safe_host]
+      request_on:
+        action: powerops.ironic_power host=<% $.host %> target="power on"
+        on-success: [wait_on]
+        on-error: [fail_safe_host]
+      wait_on:
+        action: powerops.wait_power host=<% $.host %> target="power on"
+        on-success: [wait_nova]
+        on-error: [fail_safe_host]
+      wait_nova:
+        action: powerops.wait_nova_service host=<% $.host %>
+        on-success: [verify_host_return]
+        on-error: [fail_safe_host]
+      verify_host_return:
+        action: powerops.verify_host_return host=<% $.host %> stale_domains_checked=<% $.stale_domains_checked %>
+        on-success: [nova_enable]
+        on-error: [fail_safe_host]
+      nova_enable:
+        action: powerops.set_nova_service host=<% $.host %> enabled=true
+        on-success: [maintenance_off]
+        on-error: [fail_safe_host]
+      maintenance_off:
+        action: powerops.set_masakari_maintenance host=<% $.host %> enabled=false
+        on-success: [audit_success]
+        on-error: [fail_safe_host]
+      audit_success:
+        action: powerops.audit_event host=<% $.host %> event="power_on_and_return" outcome="success"
+        on-success: [release_lock]
+        on-error: [fail_safe_host]
+      release_lock:
+        action: powerops.release_host_lock host=<% $.host %>
+      fail_safe_host:
+        action: powerops.fail_safe_host host=<% $.host %>
+        on-complete: [audit_failure]
+      audit_failure:
+        action: powerops.audit_event host=<% $.host %> event="power_on_and_return" outcome="failure"
+        on-complete: [release_lock_error]
+      release_lock_error:
+        action: powerops.release_host_lock host=<% $.host %>
+        on-complete: [fail]
+
+  host_power_status:
+    type: direct
+    input:
+      - host
+    output:
+      status: <% task(status).result %>
+    tasks:
+      status:
+        action: powerops.power_status host=<% $.host %>

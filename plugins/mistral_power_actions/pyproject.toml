@@ -15,5 +15,22 @@ dependencies = [
   "redis",
 ]
 
+[project.entry-points."mistral.actions"]
+"powerops.acquire_host_lock" = "openstack_power_actions.actions:AcquireHostLockAction"
+"powerops.refresh_host_lock" = "openstack_power_actions.actions:RefreshHostLockAction"
+"powerops.release_host_lock" = "openstack_power_actions.actions:ReleaseHostLockAction"
+"powerops.resolve_host" = "openstack_power_actions.actions:ResolveHostAction"
+"powerops.set_nova_service" = "openstack_power_actions.actions:SetNovaServiceAction"
+"powerops.set_masakari_maintenance" = "openstack_power_actions.actions:SetMasakariMaintenanceAction"
+"powerops.drain_host" = "openstack_power_actions.actions:DrainHostAction"
+"powerops.assert_host_empty" = "openstack_power_actions.actions:AssertHostEmptyAction"
+"powerops.ironic_power" = "openstack_power_actions.actions:IronicPowerAction"
+"powerops.wait_power" = "openstack_power_actions.actions:WaitPowerAction"
+"powerops.wait_nova_service" = "openstack_power_actions.actions:WaitNovaServiceAction"
+"powerops.verify_host_return" = "openstack_power_actions.actions:VerifyHostReturnAction"
+"powerops.power_status" = "openstack_power_actions.actions:PowerStatusAction"
+"powerops.audit_event" = "openstack_power_actions.actions:AuditEventAction"
+"powerops.fail_safe_host" = "openstack_power_actions.actions:FailSafeHostAction"
+
 [tool.setuptools.packages.find]
 where = ["src"]
