@@ -1,0 +1,13 @@
+---
+# Example overlay for a reviewed private PVS/SberLinux image registry.
+# Kolla-Ansible does not merge this file automatically; copy reviewed keys
+# into globals.yml before prechecks.
+workaround_ansible_issue_8743: true
+kolla_base_distro: "sberlinux"
+openstack_release: "pvs-1.0.0"
+openstack_tag: "20260430.1020-sberlinux-9"
+kolla_container_engine: "podman"
+docker_registry: "registry.example.invalid:5000"
+docker_registry_insecure: true
+docker_namespace: "pvs/pvs-openstack-sberlinux-97"
+docker_image_name_prefix: "pvs-"
