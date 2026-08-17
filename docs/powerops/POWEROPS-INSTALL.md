@@ -22,6 +22,10 @@ checkout Kolla-Ansible. Имена узлов, VLAN и адреса из при�
 - [конфигурация Ironic](https://github.com/lebtmalorny-rgb/IRNMN/blob/main/etc/kolla/config/ironic.conf);
 - [конфигурация Masakari Engine](https://github.com/lebtmalorny-rgb/IRNMN/blob/main/etc/kolla/config/masakari/masakari-engine.conf);
 - [конфигурация Mistral Executor](https://github.com/lebtmalorny-rgb/IRNMN/blob/main/etc/kolla/config/mistral/mistral-executor.conf);
+- [кастомный Masakari TaskFlow `IronicFenceTask`](https://github.com/lebtmalorny-rgb/IRNMN/blob/main/plugins/masakari_ironic_fence/src/masakari_ironic_fence/task.py);
+- [регистрация Masakari TaskFlow entry point](https://github.com/lebtmalorny-rgb/IRNMN/blob/main/plugins/masakari_ironic_fence/pyproject.toml);
+- [исходники custom actions для Mistral](https://github.com/lebtmalorny-rgb/IRNMN/tree/main/plugins/mistral_power_actions/src/openstack_power_actions);
+- [Mistral workbook `power_ops`](https://github.com/lebtmalorny-rgb/IRNMN/blob/main/mistral/workbooks/power-ops.yaml);
 - [отчёт проверки](https://github.com/lebtmalorny-rgb/IRNMN/blob/main/reports/powerops-validation.json).
 
 Граница этой поставки: Ironic хранит соответствие compute host, BMC и MAC,
@@ -196,7 +200,8 @@ kolla-ansible/
 | `etc/kolla/config/ironic.conf` | merged `ironic.conf` в API/conductor containers | Ironic | в container config volumes |
 | `etc/kolla/config/masakari/masakari-engine.conf` | `/etc/masakari/masakari.conf` в `masakari_engine` | Masakari TaskFlow | в container config volume |
 | `etc/kolla/config/mistral/mistral-executor.conf` | merged executor `mistral.conf` | Mistral executor | в container config volume |
-| plugin source | wheel, затем derived image | Mistral и Masakari processes | в image registry и container venv |
+| `plugins/masakari_ironic_fence` | `masakari_ironic_fence` wheel, затем derived image | `masakari_engine` | в image registry и container venv |
+| `plugins/mistral_power_actions` | `openstack_power_actions` wheel, затем три derived images | Mistral API, engine и executor | в image registry и container venv |
 | `powerops_ironic_nodes` | Node/Port records | Ironic API/DB | да; BMC secrets не попадают в report |
 | redacted host projection | segment/host records | Masakari API/DB | да |
 | `mistral/workbooks/power-ops.yaml` | workbook/workflow records | Mistral API/DB | да |
@@ -367,6 +372,78 @@ wheel, проверяет entry points, помещает wheel в matching build
 строит четыре derived images: `mistral-api`, `mistral-engine`,
 `mistral-executor`, `masakari-engine`. Mistral event engine остаётся на
 upstream image, потому что не обнаруживает и не исполняет custom actions.
+
+### Что находится в wheel-пакетах
+
+Wheel — это устанавливаемый архив Python-пакета. Он нужен не как отдельный
+скрипт оператора, а как способ штатно установить Python-модули и
+`entry_points` во встроенное virtual environment Kolla-контейнера. Исходником
+остаётся каталог `plugins`; wheel является воспроизводимым build artifact и в
+Git не сохраняется.
+
+В комплекте собираются два wheel:
+
+| Wheel | Исходник | Что регистрирует | Куда устанавливается | Кто использует |
+|---|---|---|---|---|
+| `masakari_ironic_fence-1.0.0-py3-none-any.whl` | `plugins/masakari_ironic_fence` | `masakari.task_flow.tasks: ironic_fence` → `IronicFenceTask` | derived `masakari-engine` image | Masakari TaskFlow при аварийном host recovery |
+| `openstack_power_actions-1.0.0-py3-none-any.whl` | `plugins/mistral_power_actions` | 15 entry points группы `mistral.actions` с namespace `powerops.*` | derived `mistral-api`, `mistral-engine` и `mistral-executor` images | Mistral action discovery, workflow engine и executor |
+
+`masakari_ironic_fence` содержит:
+
+- `task.py` — класс `IronicFenceTask`, который находит ровно один Ironic Node
+  по имени compute host, запрашивает `power off` и требует заданное число
+  стабильных подтверждений выключения;
+- `config.py` — параметры OpenStack-аутентификации, timeout, poll interval и
+  число стабильных наблюдений;
+- entry point `ironic_fence`, через который Masakari загружает task по имени
+  из `masakari-engine.conf`.
+
+В Masakari получается следующая TaskFlow-цепочка:
+
+```text
+pre:  disable_compute_service_task -> ironic_fence
+main: prepare_HA_enabled_instances_task
+post: evacuate_instances_task
+```
+
+Только `ironic_fence` является кастомным TaskFlow task. Остальные элементы —
+штатные задачи Masakari. Если Ironic не подтвердил физический `power off`,
+кастомный task завершает flow ошибкой; подготовка и evacuation не должны
+продолжаться. Автоматического обратного включения в `revert()` нет.
+
+`openstack_power_actions` содержит:
+
+- `actions.py` — 15 классов Mistral actions, включая блокировку host,
+  disable/enable Nova service, maintenance flag Masakari, drain, проверки
+  пустого host, Ironic power и fail-safe обработку;
+- `clients.py` — создание OpenStack clients из service credentials;
+- `locks.py` — distributed host lock через Kolla Redis Sentinel;
+- `operations.py` — безопасная последовательность Nova, Masakari, Ironic и
+  libvirt-проверок.
+
+Одинаковый Mistral wheel устанавливается в API, engine и executor, чтобы все
+три runtime имели один набор Python-модулей и entry points. Action records
+заполняются командой `mistral-db-manage populate` в `mistral_engine`, а
+непосредственное выполнение actions происходит в `mistral_executor`.
+
+Путь wheel от исходника до runtime:
+
+```text
+plugins/*/src
+  -> python -m build
+  -> plugins/*/dist/*.whl
+  -> docker/powerops/<component>/dist/*.whl
+  -> Containerfile: pip install в /var/lib/kolla/venv
+  -> derived image
+  -> private registry
+  -> service container на control plane
+```
+
+Wheel не копируется напрямую на compute hosts. После публикации Kolla скачивает
+derived images на control plane и создаёт из них service containers. Версии
+wheel и derived image tag должны изменяться согласованно. Для rollback нужно
+возвращать прежний image tag целиком, а не удалять отдельный Python-пакет из
+работающего контейнера.
 
 ### Шаг 8. Собрать derived images
 
@@ -900,6 +977,84 @@ VMs остаются на source host, `evacuate_instances_task` не выпол
 авторизован.
 
 ## Mistral planned workflow validation
+
+### Что делает Mistral в этой архитектуре
+
+Mistral является оркестратором только плановых операций с compute host. Он
+принимает запрос оператора через OpenStack Workflow API, читает workbook
+`power_ops`, строит последовательность tasks и передаёт custom actions в
+`mistral_executor`. Actions обращаются к Nova, Masakari и Ironic через их API;
+отдельные скрипты на compute host не копируются и не запускаются.
+
+Компоненты Mistral участвуют следующим образом:
+
+| Компонент | Роль в PowerOps |
+|---|---|
+| `mistral_api` | принимает запуск workflow и отдаёт состояние executions/tasks |
+| `mistral_engine` | читает workbook, вычисляет переходы `on-success`/`on-error`, хранит execution state и выполняет discovery actions через `mistral-db-manage populate` |
+| `mistral_executor` | загружает `powerops.*` entry points из wheel и выполняет OpenStack API operations |
+| Redis Sentinel | хранит owner-safe lock `powerops:host:<hostname>`, исключающий две одновременные плановые операции над одним host |
+
+Workbook предоставляет четыре workflow:
+
+| Workflow | Назначение | Изменяет состояние |
+|---|---|---|
+| `power_ops.host_power_status` | возвращает Nova service status/state, текущий и целевой Ironic power state и Masakari maintenance flag | нет, read-only |
+| `power_ops.planned_power_off` | безопасно выводит host из планирования, обрабатывает instances и выключает его через Ironic | да |
+| `power_ops.planned_reboot` | выполняет controlled power off/on и возвращает проверенный host в scheduler | да |
+| `power_ops.power_on_and_return` | включает ранее выключенный host, проверяет его возврат и только затем разрешает scheduling | да |
+
+`planned_power_off` выполняется в следующем порядке:
+
+```text
+получить Redis lock
+  -> найти ровно по одному Nova service, Ironic Node и Masakari host
+  -> включить Masakari maintenance
+  -> disable nova-compute
+  -> обработать instances по выбранной policy
+  -> обновить Redis lock
+  -> доказать, что host безопасен для выключения
+  -> запросить soft power off через Ironic
+  -> дождаться стабильного power off
+  -> записать audit event
+  -> освободить Redis lock
+```
+
+После успешного `planned_power_off` Nova service остаётся disabled, а
+Masakari host — на maintenance. Это ожидаемое состояние выключенного узла, а
+не незавершённый rollback.
+
+Допустимы три политики обработки instances:
+
+- `require_empty` — немедленно завершить workflow ошибкой, если на host есть
+  хотя бы один server;
+- `live_migrate` — запросить live migration всех servers и ждать, пока они
+  покинут source host;
+- `stop` — остановить servers и разрешить выключение, только если все они
+  достигли `SHUTOFF`.
+
+Политики `evacuate` здесь нет. Evacuation относится к аварийному Masakari
+TaskFlow и запускается только после `ironic_fence`. Плановый Mistral workflow
+не создаёт Masakari failure notification и не вызывает evacuation.
+
+`planned_reboot` сначала выполняет те же drain и power-off gates, затем
+включает host через Ironic, ждёт `nova-compute state=up`, проверяет возврат
+host и только после этого включает Nova service и снимает Masakari
+maintenance. `power_on_and_return` выполняет только часть включения и возврата
+для host, который уже был безопасно выключен.
+
+Перед возвратом host требуется `stale_domains_checked=true`. Сам Mistral не
+заходит по SSH и не выполняет `virsh`: оператор обязан отдельно проверить
+отсутствие stale libvirt domains на compute host и только потом передать этот
+флаг. Передача `true` без фактической проверки обходит организационный safety
+gate. Дополнительно проверяются Ironic `power on`, Nova service `up` и, если
+они перечислены в конфигурации, обязательные Neutron agents.
+
+Любая ожидаемая ошибка переводит workflow в fail-safe path: Nova service
+остаётся disabled, Masakari maintenance остаётся включённым, записывается
+failure audit event и выполняется owner-safe освобождение Redis lock. Другой
+workflow не может обновить или удалить lock, если его owner не совпадает с ID
+текущего Mistral execution.
 
 Плановые workflows используют owner-safe Redis lock, Masakari maintenance,
 Nova disable/drain, Ironic power и stable polling. Политики instances:

@@ -96,3 +96,20 @@ def test_live_operations_are_explicitly_not_run():
     assert source.count("NOT RUN IN THIS WORKSPACE") >= 8
     assert "publish-images" in source
     assert "No target deployment was authorized" in source
+
+
+def test_wheels_taskflow_and_mistral_roles_are_explained():
+    source = _runbook()
+    for required in (
+        "### Что находится в wheel-пакетах",
+        "masakari_ironic_fence-1.0.0-py3-none-any.whl",
+        "openstack_power_actions-1.0.0-py3-none-any.whl",
+        "masakari.task_flow.tasks",
+        "mistral.actions",
+        "### Что делает Mistral в этой архитектуре",
+        "power_ops.host_power_status",
+        "power_ops.planned_power_off",
+        "power_ops.planned_reboot",
+        "power_ops.power_on_and_return",
+    ):
+        assert required in source
