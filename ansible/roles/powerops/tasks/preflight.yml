@@ -1,0 +1,78 @@
+---
+- name: Require the complete PowerOps service set
+  ansible.builtin.assert:
+    that:
+      - enable_ironic | bool
+      - enable_masakari | bool
+      - enable_mistral | bool
+      - enable_redis | bool
+      - enable_powerops | bool
+      - powerops_role_nodes | length > 0
+    fail_msg: >-
+      PowerOps requires Ironic, Masakari, Mistral, Redis and at least one
+      declared power-only node.
+  run_once: true
+
+- name: Check the local PowerOps workbook source
+  ansible.builtin.stat:
+    path: "{{ powerops_workbook_path }}"
+  register: powerops_workbook_stat
+  run_once: true
+  delegate_to: localhost
+
+- name: Require the local PowerOps workbook source
+  ansible.builtin.assert:
+    that:
+      - powerops_workbook_stat.stat.isreg | default(false)
+    fail_msg: "Missing local workbook {{ powerops_workbook_path }}"
+  run_once: true
+  delegate_to: localhost
+
+- name: Verify the Masakari fencing entry point is loadable
+  become: true
+  ansible.builtin.command:
+    argv:
+      - "{{ kolla_container_engine }}"
+      - exec
+      - masakari_engine
+      - /var/lib/kolla/venv/bin/python
+      - -c
+      - >-
+        import importlib.metadata as m;
+        eps=m.entry_points();
+        selected=eps.select(group='masakari.task_flow.tasks')
+        if hasattr(eps, 'select') else
+        eps.get('masakari.task_flow.tasks', []);
+        matches=[ep for ep in selected if ep.name == 'ironic_fence'];
+        assert len(matches) == 1, 'ironic_fence entry point missing';
+        matches[0].load()
+  changed_when: false
+  run_once: true
+
+- name: Verify Mistral action entry points in every derived runtime
+  become: true
+  ansible.builtin.command:
+    argv:
+      - "{{ kolla_container_engine }}"
+      - exec
+      - "{{ powerops_mistral_container }}"
+      - /var/lib/kolla/venv/bin/python
+      - -c
+      - >-
+        import importlib.metadata as m;
+        required=set({{ powerops_required_actions | to_json }});
+        eps=m.entry_points();
+        selected=eps.select(group='mistral.actions')
+        if hasattr(eps, 'select') else eps.get('mistral.actions', []);
+        found={ep.name: ep for ep in selected if ep.name in required};
+        missing=sorted(required - set(found));
+        assert not missing, 'missing actions: ' + ','.join(missing);
+        [found[name].load() for name in sorted(required)]
+  loop:
+    - mistral_api
+    - mistral_engine
+    - mistral_executor
+  loop_control:
+    loop_var: powerops_mistral_container
+  changed_when: false
+  run_once: true

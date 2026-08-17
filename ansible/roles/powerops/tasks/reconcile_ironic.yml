@@ -1,0 +1,19 @@
+---
+- name: Reconcile declared power-only Ironic Nodes and Ports
+  powerops_ironic_node:
+    node: "{{ powerops_node }}"
+    auth: "{{ openstack_auth }}"
+    region_name: "{{ powerops_role_region_name }}"
+    interface: "{{ powerops_role_interface }}"
+    validate_certs: "{{ powerops_role_validate_certs }}"
+    cacert: "{{ powerops_role_cacert | default(omit, true) }}"
+  loop: "{{ powerops_role_nodes }}"
+  loop_control:
+    loop_var: powerops_node
+    label: "{{ powerops_node.name }}"
+  register: powerops_ironic_results
+  run_once: true
+  delegate_to: localhost
+  no_log: true
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"

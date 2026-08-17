@@ -1070,3 +1070,5 @@
   roles:
     - { role: skyline,
         tags: skyline }
+
+- import_playbook: powerops.yml

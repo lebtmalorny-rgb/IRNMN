@@ -1,0 +1,10 @@
+---
+- name: Reconcile PowerOps resources after Kolla services
+  hosts: control
+  gather_facts: false
+  serial: "100%"
+  any_errors_fatal: true
+  roles:
+    - role: powerops
+      tags:
+        - powerops

@@ -12,25 +12,35 @@ DOCUMENTATION = r"""
 ---
 module: powerops_ironic_node
 short_description: Reconcile a power-only Ironic Node and its declared Ports
+description:
+  - Creates or updates one power-only Ironic Node and its declared Ports.
+  - The only allowed provision transition is from enroll to manageable.
 options:
   node:
+    description: Declarative power-only Node and Port specification.
     type: dict
     required: true
   auth:
+    description: OpenStack service authentication mapping.
     type: dict
     required: true
   region_name:
+    description: OpenStack region containing the Ironic endpoint.
     type: str
     default: RegionOne
   interface:
+    description: OpenStack endpoint interface.
     type: str
     default: internal
   validate_certs:
+    description: Verify TLS certificates for OpenStack API requests.
     type: bool
     default: true
   cacert:
+    description: Optional CA certificate bundle path.
     type: path
   timeout:
+    description: Maximum seconds for the manage transition.
     type: int
     default: 300
 """

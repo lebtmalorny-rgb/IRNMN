@@ -1,0 +1,30 @@
+---
+powerops_role_nodes: "{{ powerops_ironic_nodes | default([]) }}"
+powerops_role_region_name: >-
+  {{ powerops_region_name | default(openstack_region_name) }}
+powerops_role_interface: "{{ powerops_api_interface | default('internal') }}"
+powerops_role_validate_certs: "{{ powerops_verify_tls | default(true) | bool }}"
+powerops_role_cacert: "{{ openstack_cacert | default('') }}"
+powerops_role_segment_name: >-
+  {{ powerops_masakari_segment_name | default('powerops-compute') }}
+powerops_role_recovery_method: >-
+  {{ powerops_masakari_recovery_method | default('auto') }}
+powerops_masakari_control_attributes: "SSH"
+powerops_workbook_path: >-
+  {{ role_path }}/../../../mistral/workbooks/power-ops.yaml
+powerops_required_actions:
+  - powerops.acquire_host_lock
+  - powerops.refresh_host_lock
+  - powerops.release_host_lock
+  - powerops.resolve_host
+  - powerops.set_nova_service
+  - powerops.set_masakari_maintenance
+  - powerops.drain_host
+  - powerops.assert_host_empty
+  - powerops.ironic_power
+  - powerops.wait_power
+  - powerops.wait_nova_service
+  - powerops.verify_host_return
+  - powerops.power_status
+  - powerops.audit_event
+  - powerops.fail_safe_host

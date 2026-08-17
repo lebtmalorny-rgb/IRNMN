@@ -1,0 +1,14 @@
+---
+- name: Run PowerOps deployment reconciliation
+  ansible.builtin.include_tasks: "{{ powerops_task_file }}"
+  loop_control:
+    loop_var: powerops_task_file
+  loop:
+    - preflight.yml
+    - reconcile_ironic.yml
+    - reconcile_masakari.yml
+    - register_mistral.yml
+    - validate.yml
+  when:
+    - enable_powerops | bool
+    - kolla_action in ['deploy', 'reconfigure']

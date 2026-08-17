@@ -1,0 +1,28 @@
+---
+- name: Populate Mistral action records from installed entry points
+  become: true
+  ansible.builtin.command:
+    argv:
+      - "{{ kolla_container_engine }}"
+      - exec
+      - mistral_engine
+      - mistral-db-manage
+      - populate
+  changed_when: false
+  run_once: true
+
+- name: Reconcile the PowerOps Mistral workbook after action discovery
+  powerops_mistral_workbook:
+    path: "{{ powerops_workbook_path }}"
+    required_actions: "{{ powerops_required_actions }}"
+    auth: "{{ openstack_auth }}"
+    region_name: "{{ powerops_role_region_name }}"
+    interface: "{{ powerops_role_interface }}"
+    validate_certs: "{{ powerops_role_validate_certs }}"
+    cacert: "{{ powerops_role_cacert | default(omit, true) }}"
+  register: powerops_mistral_result
+  run_once: true
+  delegate_to: localhost
+  no_log: true
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"

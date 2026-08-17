@@ -1,0 +1,21 @@
+---
+- name: Build the redacted PowerOps deployment summary
+  ansible.builtin.set_fact:
+    powerops_deployment_summary:
+      ironic_nodes: "{{ powerops_ironic_results.results | length }}"
+      ironic_changed: >-
+        {{ powerops_ironic_results.results |
+           selectattr('changed') | list | length }}
+      masakari_segment: "{{ powerops_masakari_result.segment }}"
+      masakari_changed: "{{ powerops_masakari_result.changed }}"
+      masakari_extra_hosts: "{{ powerops_masakari_result.extra_hosts }}"
+      mistral_workbook: "{{ powerops_mistral_result.workbook }}"
+      mistral_changed: "{{ powerops_mistral_result.changed }}"
+      workbook_sha256: "{{ powerops_mistral_result.definition_sha256 }}"
+  run_once: true
+  no_log: true
+
+- name: Show the redacted PowerOps deployment summary
+  ansible.builtin.debug:
+    var: powerops_deployment_summary
+  run_once: true

@@ -1,0 +1,42 @@
+---
+- name: Initialize the redacted Masakari host specification
+  ansible.builtin.set_fact:
+    powerops_masakari_hosts: []
+  run_once: true
+
+- name: Build the redacted Masakari host specification
+  ansible.builtin.set_fact:
+    powerops_masakari_hosts: >-
+      {{ powerops_masakari_hosts + [{
+        'name': powerops_node.nova_hostname,
+        'type': 'COMPUTE',
+        'control_attributes': powerops_masakari_control_attributes,
+        'reserved': powerops_node.masakari_reserved | default(false) | bool,
+        'on_maintenance': powerops_node.masakari_on_maintenance | default(true) | bool
+      }] }}
+  loop: "{{ powerops_role_nodes }}"
+  loop_control:
+    loop_var: powerops_node
+    label: "{{ powerops_node.name }}"
+  run_once: true
+  no_log: true
+
+- name: Reconcile the Masakari segment and declared hosts
+  powerops_masakari_segment:
+    segment:
+      name: "{{ powerops_role_segment_name }}"
+      service_type: COMPUTE
+      recovery_method: "{{ powerops_role_recovery_method }}"
+      description: PowerOps compute hosts managed by Kolla-Ansible
+      hosts: "{{ powerops_masakari_hosts }}"
+    auth: "{{ openstack_auth }}"
+    region_name: "{{ powerops_role_region_name }}"
+    interface: "{{ powerops_role_interface }}"
+    validate_certs: "{{ powerops_role_validate_certs }}"
+    cacert: "{{ powerops_role_cacert | default(omit, true) }}"
+  register: powerops_masakari_result
+  run_once: true
+  delegate_to: localhost
+  no_log: true
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
