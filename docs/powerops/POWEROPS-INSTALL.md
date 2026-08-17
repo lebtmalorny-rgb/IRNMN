@@ -10,6 +10,17 @@ checkout Kolla-Ansible. Имена узлов, VLAN и адреса из при�
 - [редактируемый SVG](ironic-ha-power-workflows.svg);
 - [готовый PNG](ironic-ha-power-workflows.png).
 
+## Публикация материалов
+
+Материалы опубликованы в ветке `main`:
+
+- [Репозиторий IRNMN](https://github.com/lebtmalorny-rgb/IRNMN);
+- [подробная инструкция](https://github.com/lebtmalorny-rgb/IRNMN/blob/main/docs/powerops/POWEROPS-INSTALL.md);
+- [редактируемая SVG-схема](https://github.com/lebtmalorny-rgb/IRNMN/blob/main/docs/powerops/ironic-ha-power-workflows.svg);
+- [PNG-схема](https://github.com/lebtmalorny-rgb/IRNMN/blob/main/docs/powerops/ironic-ha-power-workflows.png);
+- [globals.yml](https://github.com/lebtmalorny-rgb/IRNMN/blob/main/etc/kolla/globals.yml);
+- [отчёт проверки](https://github.com/lebtmalorny-rgb/IRNMN/blob/main/reports/powerops-validation.json).
+
 Граница этой поставки: Ironic хранит соответствие compute host, BMC и MAC,
 выполняет только power/management операции и оставляет Nodes в
 `manageable`. В inventory отсутствуют `nova-compute-ironic`, inspector, TFTP
