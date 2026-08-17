@@ -1,0 +1,23 @@
+{
+  "inventory": {
+    "driver_counts": {
+      "ipmi": 1,
+      "redfish": 1
+    },
+    "node_count": 2,
+    "port_count": 2
+  },
+  "live_validation": {
+    "ipmi_power": "not_run: No target deployment was authorized",
+    "ironic_api_failover": "not_run: No target deployment was authorized",
+    "ironic_conductor_failover": "not_run: No target deployment was authorized",
+    "kolla_deploy": "not_run: No target deployment was authorized",
+    "masakari_fencing_and_evacuation": "not_run: No target deployment was authorized",
+    "mistral_planned_workflows": "not_run: No target deployment was authorized",
+    "redfish_power": "not_run: No target deployment was authorized"
+  },
+  "local_validation": {
+    "errors": [],
+    "status": "passed"
+  }
+}
