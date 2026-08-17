@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1200" viewBox="0 0 1800 1200" role="img" aria-labelledby="title desc">
+  <title id="title">HA Ironic power-only на control plane</title>
+  <desc id="desc">Три control-узла с Ironic API и conductor, общими MariaDB и RabbitMQ, управлением BMC через Redfish или IPMI и отдельными потоками Mistral и Masakari.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#101d33"/>
+    </linearGradient>
+    <linearGradient id="control" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#172c4b"/>
+      <stop offset="1" stop-color="#101d33"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#020617" flood-opacity="0.55"/>
+    </filter>
+    <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#38bdf8"/>
+    </marker>
+    <marker id="arrow-orange" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#fb923c"/>
+    </marker>
+    <marker id="arrow-neutral" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#94a3b8"/>
+    </marker>
+    <style>
+      text { font-family: "DejaVu Sans", "Arial", sans-serif; fill: #e5eefb; }
+      .title { font-size: 42px; font-weight: 700; }
+      .subtitle { font-size: 21px; fill: #9fb1c9; }
+      .section { font-size: 18px; font-weight: 700; letter-spacing: 1.5px; fill: #7dd3fc; }
+      .node-title { font-size: 25px; font-weight: 700; }
+      .service { font-size: 18px; font-weight: 600; }
+      .meta { font-size: 15px; fill: #9fb1c9; }
+      .box-title { font-size: 21px; font-weight: 700; }
+      .body { font-size: 16px; fill: #b8c7dc; }
+      .flow-title { font-size: 22px; font-weight: 700; }
+      .step { font-size: 14px; font-weight: 600; }
+      .small { font-size: 13px; fill: #a9bad0; }
+    </style>
+  </defs>
+
+  <rect width="1800" height="1200" fill="url(#bg)"/>
+  <g id="header">
+    <text class="title" x="70" y="68">HA Ironic power-only на control plane</text>
+    <text class="subtitle" x="70" y="102">Три условных control-узла · Redfish основной · IPMI fallback · evacuation только после подтверждённого fencing</text>
+  </g>
+
+  <g id="entrypoint" filter="url(#shadow)">
+    <rect x="550" y="128" width="700" height="70" rx="18" fill="#13243e" stroke="#38bdf8" stroke-width="2"/>
+    <text class="box-title" x="900" y="157" text-anchor="middle">Operator · Horizon · OpenStack CLI</text>
+    <text class="body" x="900" y="181" text-anchor="middle">HAProxy + Keepalived VIP</text>
+    <path d="M900 199 L900 230" stroke="#38bdf8" stroke-width="3" marker-end="url(#arrow-blue)"/>
+  </g>
+
+  <text class="section" x="70" y="233">CONTROL PLANE · ACTIVE-ACTIVE</text>
+  <g id="control-plane">
+    <g id="control-01" transform="translate(70 250)" filter="url(#shadow)">
+      <rect width="520" height="260" rx="20" fill="url(#control)" stroke="#36577e" stroke-width="2"/>
+      <circle cx="34" cy="36" r="7" fill="#22c55e"/>
+      <text class="node-title" x="54" y="45">control-01</text>
+      <text class="meta" x="490" y="43" text-anchor="end">ACTIVE</text>
+      <g transform="translate(24 68)">
+        <rect width="472" height="38" rx="9" fill="#1c3558"/>
+        <text class="service" x="16" y="25">Ironic API</text><text class="meta" x="452" y="25" text-anchor="end">stateless</text>
+        <rect y="48" width="472" height="38" rx="9" fill="#1c3558"/>
+        <text class="service" x="16" y="73">Ironic Conductor</text><text class="meta" x="452" y="73" text-anchor="end">hash ring</text>
+        <rect y="96" width="472" height="38" rx="9" fill="#1c3558"/>
+        <text class="service" x="16" y="121">Masakari Engine</text><text class="meta" x="452" y="121" text-anchor="end">fencing task</text>
+        <rect y="144" width="472" height="38" rx="9" fill="#1c3558"/>
+        <text class="service" x="16" y="169">Mistral</text><text class="meta" x="452" y="169" text-anchor="end">API · engine · executor</text>
+      </g>
+    </g>
+
+    <g id="control-02" transform="translate(640 250)" filter="url(#shadow)">
+      <rect width="520" height="260" rx="20" fill="url(#control)" stroke="#36577e" stroke-width="2"/>
+      <circle cx="34" cy="36" r="7" fill="#22c55e"/>
+      <text class="node-title" x="54" y="45">control-02</text>
+      <text class="meta" x="490" y="43" text-anchor="end">ACTIVE</text>
+      <g transform="translate(24 68)">
+        <rect width="472" height="38" rx="9" fill="#1c3558"/>
+        <text class="service" x="16" y="25">Ironic API</text><text class="meta" x="452" y="25" text-anchor="end">stateless</text>
+        <rect y="48" width="472" height="38" rx="9" fill="#1c3558"/>
+        <text class="service" x="16" y="73">Ironic Conductor</text><text class="meta" x="452" y="73" text-anchor="end">hash ring</text>
+        <rect y="96" width="472" height="38" rx="9" fill="#1c3558"/>
+        <text class="service" x="16" y="121">Masakari Engine</text><text class="meta" x="452" y="121" text-anchor="end">fencing task</text>
+        <rect y="144" width="472" height="38" rx="9" fill="#1c3558"/>
+        <text class="service" x="16" y="169">Mistral</text><text class="meta" x="452" y="169" text-anchor="end">API · engine · executor</text>
+      </g>
+    </g>
+
+    <g id="control-03" transform="translate(1210 250)" filter="url(#shadow)">
+      <rect width="520" height="260" rx="20" fill="url(#control)" stroke="#36577e" stroke-width="2"/>
+      <circle cx="34" cy="36" r="7" fill="#22c55e"/>
+      <text class="node-title" x="54" y="45">control-03</text>
+      <text class="meta" x="490" y="43" text-anchor="end">ACTIVE</text>
+      <g transform="translate(24 68)">
+        <rect width="472" height="38" rx="9" fill="#1c3558"/>
+        <text class="service" x="16" y="25">Ironic API</text><text class="meta" x="452" y="25" text-anchor="end">stateless</text>
+        <rect y="48" width="472" height="38" rx="9" fill="#1c3558"/>
+        <text class="service" x="16" y="73">Ironic Conductor</text><text class="meta" x="452" y="73" text-anchor="end">hash ring</text>
+        <rect y="96" width="472" height="38" rx="9" fill="#1c3558"/>
+        <text class="service" x="16" y="121">Masakari Engine</text><text class="meta" x="452" y="121" text-anchor="end">fencing task</text>
+        <rect y="144" width="472" height="38" rx="9" fill="#1c3558"/>
+        <text class="service" x="16" y="169">Mistral</text><text class="meta" x="452" y="169" text-anchor="end">API · engine · executor</text>
+      </g>
+    </g>
+  </g>
+
+  <g id="shared-state">
+    <path d="M330 510 L330 550 L900 550" fill="none" stroke="#94a3b8" stroke-width="2"/>
+    <path d="M900 510 L900 550" fill="none" stroke="#94a3b8" stroke-width="2"/>
+    <path d="M1470 510 L1470 550 L900 550" fill="none" stroke="#94a3b8" stroke-width="2"/>
+    <text class="section" x="70" y="574">ОБЩЕЕ СОСТОЯНИЕ И RPC</text>
+
+    <g id="ironic-source" transform="translate(70 590)">
+      <rect width="780" height="150" rx="18" fill="#102a35" stroke="#22d3ee" stroke-width="2"/>
+      <text class="box-title" x="28" y="39">Ironic API/DB — источник данных</text>
+      <text class="body" x="28" y="72">Node · Port · driver_info · power_state</text>
+      <text class="body" x="28" y="100">Redfish/IPMI адрес, system_id, учётные данные, MAC физических NIC</text>
+      <text class="small" x="28" y="130">Kolla inventory определяет только размещение сервисов.</text>
+    </g>
+
+    <g id="mariadb" transform="translate(880 590)">
+      <rect width="400" height="150" rx="18" fill="#182238" stroke="#64748b" stroke-width="2"/>
+      <text class="box-title" x="28" y="42">MariaDB HA</text>
+      <text class="body" x="28" y="76">Ironic · Masakari · Mistral</text>
+      <text class="small" x="28" y="108">Согласованное постоянное состояние</text>
+    </g>
+
+    <g id="rabbitmq" transform="translate(1310 590)">
+      <rect width="420" height="150" rx="18" fill="#182238" stroke="#64748b" stroke-width="2"/>
+      <text class="box-title" x="28" y="42">RabbitMQ HA</text>
+      <text class="body" x="28" y="76">API ↔ conductors · service RPC</text>
+      <text class="small" x="28" y="108">Очереди и распределение операций</text>
+    </g>
+  </g>
+
+  <g id="power-layer">
+    <path d="M460 740 L460 786" stroke="#38bdf8" stroke-width="3" marker-end="url(#arrow-blue)"/>
+    <path d="M460 772 L1020 772 L1020 786" fill="none" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow-neutral)"/>
+    <g id="redfish" transform="translate(70 800)">
+      <rect width="520" height="105" rx="16" fill="#10263b" stroke="#38bdf8" stroke-width="2"/>
+      <text class="box-title" x="28" y="38">Redfish BMC · основной</text>
+      <text class="body" x="28" y="69">HTTPS · system_id · CA verify · power on/off/reboot</text>
+    </g>
+    <g id="ipmi" transform="translate(640 800)">
+      <rect width="430" height="105" rx="16" fill="#302319" stroke="#fb923c" stroke-width="2"/>
+      <text class="box-title" x="28" y="38">IPMI · fallback</text>
+      <text class="body" x="28" y="69">ipmitool для оборудования без Redfish</text>
+    </g>
+    <g id="compute" transform="translate(1120 800)">
+      <rect width="610" height="105" rx="16" fill="#182238" stroke="#64748b" stroke-width="2"/>
+      <text class="box-title" x="28" y="38">Compute hosts · Nova + libvirt</text>
+      <text class="body" x="28" y="69">Ironic управляет питанием, но не выполняет provisioning.</text>
+    </g>
+  </g>
+
+  <g id="power-only-boundary">
+    <rect x="70" y="930" width="1660" height="58" rx="14" fill="#0d2a20" stroke="#22c55e" stroke-width="2" stroke-dasharray="9 7"/>
+    <text class="body" x="900" y="966" text-anchor="middle" fill="#bbf7d0">POWER-ONLY · manageable + noop · без Nova-Ironic scheduling, PXE, cleaning, inspection и provisioning</text>
+  </g>
+
+  <g id="workflows">
+    <g id="planned-flow" transform="translate(70 1015)">
+      <text class="flow-title" x="0" y="0" fill="#7dd3fc">Плановый поток · Mistral</text>
+      <g transform="translate(0 22)">
+        <rect width="132" height="42" rx="10" fill="#164e63"/><text class="step" x="66" y="27" text-anchor="middle">lock</text>
+        <path d="M140 21 L170 21" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow-blue)"/>
+        <rect x="180" width="150" height="42" rx="10" fill="#164e63"/><text class="step" x="255" y="27" text-anchor="middle">maintenance</text>
+        <path d="M338 21 L368 21" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow-blue)"/>
+        <rect x="378" width="150" height="42" rx="10" fill="#164e63"/><text class="step" x="453" y="27" text-anchor="middle">Nova disable</text>
+        <path d="M536 21 L566 21" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow-blue)"/>
+        <rect x="576" width="120" height="42" rx="10" fill="#164e63"/><text class="step" x="636" y="27" text-anchor="middle">drain</text>
+        <path d="M704 21 L734 21" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow-blue)"/>
+        <rect x="744" width="170" height="42" rx="10" fill="#164e63"/><text class="step" x="829" y="27" text-anchor="middle">Ironic power</text>
+      </g>
+    </g>
+
+    <g id="emergency-flow" transform="translate(70 1110)">
+      <text class="flow-title" x="0" y="0" fill="#fdba74">Аварийный поток · Masakari</text>
+      <g transform="translate(0 22)">
+        <rect width="150" height="42" rx="10" fill="#4a2815"/><text class="step" x="75" y="27" text-anchor="middle">host failure</text>
+        <path d="M158 21 L188 21" stroke="#fb923c" stroke-width="2" marker-end="url(#arrow-orange)"/>
+        <rect x="198" width="150" height="42" rx="10" fill="#4a2815"/><text class="step" x="273" y="27" text-anchor="middle">Nova disable</text>
+        <path d="M356 21 L386 21" stroke="#fb923c" stroke-width="2" marker-end="url(#arrow-orange)"/>
+        <rect x="396" width="150" height="42" rx="10" fill="#4a2815"/><text class="step" x="471" y="27" text-anchor="middle">hard fence</text>
+        <path d="M554 21 L584 21" stroke="#fb923c" stroke-width="2" marker-end="url(#arrow-orange)"/>
+        <rect x="594" width="150" height="42" rx="10" fill="#4a2815"/><text class="step" x="669" y="27" text-anchor="middle">stable OFF</text>
+        <path d="M752 21 L782 21" stroke="#fb923c" stroke-width="2" marker-end="url(#arrow-orange)"/>
+        <rect x="792" width="160" height="42" rx="10" fill="#4a2815"/><text class="step" x="872" y="27" text-anchor="middle">evacuation</text>
+        <rect x="1020" width="640" height="42" rx="10" fill="#481a21" stroke="#ef4444"/>
+        <text class="step" x="1340" y="27" text-anchor="middle">OFF не подтверждён → ERROR → evacuation запрещена</text>
+      </g>
+    </g>
+  </g>
+</svg>
