@@ -243,6 +243,33 @@ def test_forbidden_existing_state_is_never_changed(fake_connection, redfish_spec
     assert fake_connection.baremetal.provision_targets == []
 
 
+def test_masked_bmc_password_is_safely_reapplied(
+    fake_connection, redfish_spec
+):
+    module = load_module()
+    masked_info = dict(redfish_spec["driver_info"])
+    masked_info["redfish_password"] = "******"
+    fake_connection.baremetal.node_items = [
+        SimpleNamespace(
+            id="node-1",
+            name="compute-01",
+            driver="redfish",
+            driver_info=masked_info,
+            network_interface="noop",
+            extra={"nova_hostname": "compute-01"},
+            provision_state="manageable",
+        )
+    ]
+
+    result = module.reconcile_node(fake_connection, redfish_spec)
+
+    updates = fake_connection.baremetal.updated_nodes[0][1]
+    assert updates["driver_info"]["redfish_password"] == (
+        "example-only-redfish-password"
+    )
+    assert "example-only-redfish-password" not in str(result)
+
+
 def test_sdk_exception_is_redacted(fake_connection, redfish_spec):
     module = load_module()
     password = redfish_spec["driver_info"]["redfish_password"]

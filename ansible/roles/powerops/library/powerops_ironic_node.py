@@ -144,8 +144,6 @@ def _driver_info_differs(current, desired):
     current = current or {}
     for key, desired_value in desired.items():
         current_value = current.get(key)
-        if "password" in key.lower() and current_value in (None, "", "******"):
-            continue
         if current_value != desired_value:
             return True
     return False
